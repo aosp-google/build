@@ -28,8 +28,8 @@ PRODUCT_FULL_TREBLE_OVERRIDE := true
 
 # The Messaging app:
 #   Needed for android.telecom.cts.ExtendedInCallServiceTest#testOnCannedTextResponsesLoaded
-PRODUCT_PACKAGES += \
-    messaging
+#PRODUCT_PACKAGES += \
+#    messaging
 
 # The following policy XML files are used as fallback for
 # vendors/devices not using XML to configure audio policy.
@@ -40,16 +40,11 @@ PRODUCT_COPY_FILES += \
     frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:system/etc/audio_policy_volumes.xml \
     frameworks/av/services/audiopolicy/config/default_volume_tables.xml:system/etc/default_volume_tables.xml \
 
-# Telephony:
-#   Provide a default APN configuration
-PRODUCT_COPY_FILES += \
-    device/generic/goldfish/data/etc/apns-conf.xml:system/etc/apns-conf.xml
-
 # NFC:
 #   Provide default libnfc-nci.conf file for devices that does not have one in
 #   vendor/etc
 PRODUCT_COPY_FILES += \
-    device/generic/common/nfc/libnfc-nci.conf:system/etc/libnfc-nci.conf
+    build/make/target/product/nfc/libnfc-nci.conf:system/etc/libnfc-nci.conf
 
 # Support for the O-MR1 devices
 PRODUCT_COPY_FILES += \

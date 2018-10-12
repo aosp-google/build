@@ -175,16 +175,22 @@ include $(BUILD_SYSTEM)/node_fns.mk
 include $(BUILD_SYSTEM)/product.mk
 include $(BUILD_SYSTEM)/device.mk
 
-ifneq ($(strip $(TARGET_BUILD_APPS)),)
-# An unbundled app build needs only the core product makefiles.
-all_product_configs := $(call get-product-makefiles,\
-    $(SRC_TARGET_DIR)/product/AndroidProducts.mk)
+# A AOSP build needs only the specific product makefiles.
+ifneq ($(CUSTOM_BUILD),)
+  all_product_configs := $(shell find device -path "*/*/aosp_$(CUSTOM_BUILD).mk")
 else
-# Read in all of the product definitions specified by the AndroidProducts.mk
-# files in the tree.
-all_product_configs := $(get-all-product-makefiles)
-endif
+  ifneq ($(strip $(TARGET_BUILD_APPS)),)
+  # An unbundled app build needs only the core product makefiles.
+  all_product_configs := $(call get-product-makefiles,\
+      $(SRC_TARGET_DIR)/product/AndroidProducts.mk)
+  else
+  # Read in all of the product definitions specified by the AndroidProducts.mk
+  # files in the tree.
+  all_product_configs := $(get-all-product-makefiles)
+  endif # TARGET_BUILD_APPS
+endif # CUSTOM_BUILD
 
+ifeq ($(CUSTOM_BUILD),)
 all_named_products :=
 
 # Find the product config makefile for the current product.
@@ -210,6 +216,10 @@ $(foreach f, $(all_product_configs),\
 _cpm_words :=
 _cpm_word1 :=
 _cpm_word2 :=
+else
+    current_product_makefile := $(strip $(all_product_configs))
+    all_product_makefiles := $(strip $(all_product_configs))
+endif
 current_product_makefile := $(strip $(current_product_makefile))
 all_product_makefiles := $(strip $(all_product_makefiles))
 
@@ -371,6 +381,13 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES := \
 PRODUCT_PRODUCT_PROPERTIES := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_PRODUCT_PROPERTIES))
 .KATI_READONLY := PRODUCT_PRODUCT_PROPERTIES
+
+# A list of property assignments, like "key = value", with zero or more
+# whitespace characters on either side of the '='.
+# used for overriding properties in build.prop
+PRODUCT_BUILD_PROP_OVERRIDES := \
+    $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_BUILD_PROP_OVERRIDES))
+.KATI_READONLY := PRODUCT_BUILD_PROP_OVERRIDES
 
 # Should we use the default resources or add any product specific overlays
 PRODUCT_PACKAGE_OVERLAYS := \

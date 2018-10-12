@@ -40,7 +40,6 @@ pathmap_INCL := \
     libhardware:hardware/libhardware/include \
     libhardware_legacy:hardware/libhardware_legacy/include \
     libril:hardware/ril/include \
-    recovery:bootable/recovery \
     system-core:system/core/include \
     audio:system/media/audio/include \
     audio-effects:system/media/audio_effects/include \
@@ -93,3 +92,5 @@ FRAMEWORKS_BASE_SUBDIRS := \
 #
 FRAMEWORKS_BASE_JAVA_SRC_DIRS := \
 	$(addprefix frameworks/base/,$(FRAMEWORKS_BASE_SUBDIRS))
+
+include $(TOPDIR)vendor/aosp/build/core/pathmap.mk

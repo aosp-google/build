@@ -22,7 +22,7 @@ import sys
 # See PROP_VALUE_MAX in system_properties.h.
 # The constant in system_properties.h includes the terminating NUL,
 # so we decrease the value by 1 here.
-PROP_VALUE_MAX = 91
+PROP_VALUE_MAX = 120
 
 # Put the modifications that you need to make into the /system/build.prop into this
 # function. The prop object has get(name) and put(name,value) methods.
@@ -38,9 +38,9 @@ def mangle_default_prop_override(prop):
 # Put the modifications that you need to make into the /system/etc/prop.default into this
 # function. The prop object has get(name) and put(name,value) methods.
 def mangle_default_prop(prop):
-  # If ro.debuggable is 1, then enable adb on USB by default
-  # (this is for userdebug builds)
-  if prop.get("ro.debuggable") == "1":
+  # If ro.adb.secure is not 1, then enable adb on USB by default
+  # (this is for eng builds)
+  if prop.get("ro.adb.secure") != "1":
     val = prop.get("persist.sys.usb.config")
     if "adb" not in val:
       if val == "":
