@@ -3,27 +3,10 @@
 #
 ####################################
 
-# Filter out duplicates
-define uniq__dx
-  $(eval seen :=)
-  $(foreach _,$1,$(if $(filter $_,${seen}),,$(eval seen += $_)))
-  ${seen}
-endef
-
-PRODUCT_BOOT_JARS := $(call uniq__dx,$(subst $(space), ,$(strip $(PRODUCT_BOOT_JARS))))
-PRODUCT_BOOT_JARS_NOPREOPT := $(call uniq__dx,$(subst $(space), ,$(strip $(PRODUCT_BOOT_JARS_NOPREOPT))))
-
-# Filter out non-preopt boot jars out of preoptable boot jars
-# this is to prevent further duplicates, as well, as strictly
-# enforcing the non-preopt rule here: non-preop boot jars are
-# not allowed to stay in normal boot jars so remove them here
-PRODUCT_BOOT_JARS := $(filter-out $(PRODUCT_BOOT_JARS_NOPREOPT),$(PRODUCT_BOOT_JARS))
-
 # list of boot classpath jars for dexpreopt
 DEXPREOPT_BOOT_JARS := $(subst $(space),:,$(PRODUCT_BOOT_JARS))
 DEXPREOPT_BOOT_JARS_MODULES := $(PRODUCT_BOOT_JARS)
-DEXPREOPT_BOOT_JARS_CLASSPATH := $(PRODUCT_BOOT_JARS) $(PRODUCT_BOOT_JARS_NOPREOPT)
-PRODUCT_BOOTCLASSPATH := $(subst $(space),:,$(foreach m,$(DEXPREOPT_BOOT_JARS_CLASSPATH),/system/framework/$(m).jar))
+PRODUCT_BOOTCLASSPATH := $(subst $(space),:,$(foreach m,$(DEXPREOPT_BOOT_JARS_MODULES),/system/framework/$(m).jar))
 
 PRODUCT_SYSTEM_SERVER_CLASSPATH := $(subst $(space),:,$(foreach m,$(PRODUCT_SYSTEM_SERVER_JARS),/system/framework/$(m).jar))
 
@@ -66,7 +49,7 @@ ifeq ($(HOST_OS),linux)
 
   # Non eng linux builds must have preopt enabled so that system server doesn't run as interpreter
   # only. b/74209329
-  ifneq (,$(filter eng, $(TARGET_BUILD_VARIANT)))
+  ifeq (,$(filter eng, $(TARGET_BUILD_VARIANT)))
     ifneq (true,$(WITH_DEXPREOPT))
       ifneq (true,$(WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY))
         $(call pretty-error, DEXPREOPT must be enabled for user and userdebug builds)

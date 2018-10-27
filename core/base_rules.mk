@@ -109,6 +109,13 @@ endif
 # base_rules.mk, but it will fix the most common ones.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(filter-out %.mk,$(LOCAL_ADDITIONAL_DEPENDENCIES))
 
+my_bad_deps := $(strip $(foreach dep,$(filter-out | ||,$(LOCAL_ADDITIONAL_DEPENDENCIES)),\
+                 $(if $(findstring /,$(dep)),,$(dep))))
+ifneq ($(my_bad_deps),)
+$(call pretty-warning,"Bad LOCAL_ADDITIONAL_DEPENDENCIES: $(my_bad_deps)")
+$(call pretty-error,"LOCAL_ADDITIONAL_DEPENDENCIES must only contain paths (not module names)")
+endif
+
 ###########################################################
 ## Validate and define fallbacks for input LOCAL_* variables.
 ###########################################################
@@ -294,7 +301,6 @@ ifneq (true,$(LOCAL_UNINSTALLABLE_MODULE))
   ifeq ($(LOCAL_NO_STANDARD_LIBRARIES),true)
   # Neither do Runtime Resource Overlay apks, which contain just the overlaid resources.
   else ifeq ($(LOCAL_IS_RUNTIME_RESOURCE_OVERLAY),true)
-  else ifeq ($(LOCAL_IGNORE_SUBDIR),true)
   else
     my_module_path := $(my_module_path)/$(LOCAL_MODULE)
   endif
@@ -684,7 +690,7 @@ INSTALLABLE_FILES.$(LOCAL_INSTALLED_MODULE).MODULE := $(my_register_name)
 ##########################################################
 # Track module-level dependencies.
 # Use $(LOCAL_MODULE) instead of $(my_register_name) to ignore module's bitness.
-ALL_DEPS.MODULES := $(sort $(ALL_DEPS.MODULES) $(LOCAL_MODULE))
+ALL_DEPS.MODULES := $(ALL_DEPS.MODULES) $(LOCAL_MODULE)
 ALL_DEPS.$(LOCAL_MODULE).ALL_DEPS := $(sort \
   $(ALL_MODULES.$(LOCAL_MODULE).ALL_DEPS) \
   $(LOCAL_STATIC_LIBRARIES) \

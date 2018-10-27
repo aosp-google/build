@@ -67,7 +67,7 @@ $(KATI_obsolete_var ANDROID_HOST_OUT,Use HOST_OUT instead. See $(CHANGES_URL)#AN
 $(KATI_obsolete_var ANDROID_PRODUCT_OUT,Use PRODUCT_OUT instead. See $(CHANGES_URL)#ANDROID_PRODUCT_OUT)
 $(KATI_obsolete_var ANDROID_HOST_OUT_TESTCASES,Use HOST_OUT_TESTCASES instead. See $(CHANGES_URL)#ANDROID_HOST_OUT_TESTCASES)
 $(KATI_obsolete_var ANDROID_TARGET_OUT_TESTCASES,Use TARGET_OUT_TESTCASES instead. See $(CHANGES_URL)#ANDROID_TARGET_OUT_TESTCASES)
-#$(KATI_obsolete_var ANDROID_BUILD_TOP,Use '.' instead. See $(CHANGES_URL)#ANDROID_BUILD_TOP)
+$(KATI_obsolete_var ANDROID_BUILD_TOP,Use '.' instead. See $(CHANGES_URL)#ANDROID_BUILD_TOP)
 $(KATI_obsolete_var \
   ANDROID_TOOLCHAIN \
   ANDROID_TOOLCHAIN_2ND_ARCH \
@@ -226,11 +226,11 @@ FIND_LEAVES_EXCLUDES := $(addprefix --prune=, $(SCAN_EXCLUDE_DIRS) .repo .git)
 
 # General entries for project pathmap.  Any entries listed here should
 # be device and hardware independent.
-$(call project-set-path-variant,recovery,RECOVERY_VARIANT,bootable/recovery)
 $(call project-set-path-variant,ril,TARGET_RIL_VARIANT,hardware/ril)
 
--include vendor/extra/BoardConfigExtra.mk
--include vendor/aosp/config/BoardConfig.mk
+ifneq ($(CUSTOM_BUILD),)
+include vendor/aosp/config/BoardConfig.mk
+endif
 
 # The build system exposes several variables for where to find the kernel
 # headers:
@@ -557,9 +557,8 @@ prebuilt_sdk_tools_bin := $(prebuilt_sdk_tools)/$(HOST_OS)/bin
 prebuilt_build_tools := prebuilts/build-tools
 prebuilt_build_tools_wrappers := prebuilts/build-tools/common/bin
 prebuilt_build_tools_jars := prebuilts/build-tools/common/framework
-prebuilt_build_tools_bin_noasan := $(prebuilt_build_tools)/$(HOST_PREBUILT_TAG)/bin
 ifeq ($(filter address,$(SANITIZE_HOST)),)
-prebuilt_build_tools_bin := $(prebuilt_build_tools_bin_noasan)
+prebuilt_build_tools_bin := $(prebuilt_build_tools)/$(HOST_PREBUILT_TAG)/bin
 else
 prebuilt_build_tools_bin := $(prebuilt_build_tools)/$(HOST_PREBUILT_TAG)/asan/bin
 endif
@@ -628,13 +627,13 @@ ZIPTIME := $(prebuilt_build_tools_bin)/ziptime
 # ---------------------------------------------------------------
 # Generic tools.
 
-LEX := $(prebuilt_build_tools_bin_noasan)/flex
+LEX := $(prebuilt_build_tools_bin)/flex
 # The default PKGDATADIR built in the prebuilt bison is a relative path
 # prebuilts/build-tools/common/bison.
 # To run bison from elsewhere you need to set up enviromental variable
 # BISON_PKGDATADIR.
 BISON_PKGDATADIR := $(PWD)/prebuilts/build-tools/common/bison
-BISON := $(prebuilt_build_tools_bin_noasan)/bison
+BISON := $(prebuilt_build_tools_bin)/bison
 YACC := $(BISON) -d
 BISON_DATA := $(wildcard $(BISON_PKGDATADIR)/* $(BISON_PKGDATADIR)/*/*)
 
@@ -672,7 +671,6 @@ else
 AVBTOOL := $(BOARD_CUSTOM_AVBTOOL)
 endif
 APICHECK := $(HOST_OUT_EXECUTABLES)/apicheck$(HOST_EXECUTABLE_SUFFIX)
-MKIMAGE :=  $(HOST_OUT_EXECUTABLES)/mkimage$(HOST_EXECUTABLE_SUFFIX)
 FS_GET_STATS := $(HOST_OUT_EXECUTABLES)/fs_get_stats$(HOST_EXECUTABLE_SUFFIX)
 MAKE_EXT4FS := $(HOST_OUT_EXECUTABLES)/mke2fs$(HOST_EXECUTABLE_SUFFIX)
 MKEXTUSERIMG := $(HOST_OUT_EXECUTABLES)/mkuserimg_mke2fs.sh
@@ -691,6 +689,7 @@ JARJAR := $(HOST_OUT_JAVA_LIBRARIES)/jarjar.jar
 DATA_BINDING_COMPILER := $(HOST_OUT_JAVA_LIBRARIES)/databinding-compiler.jar
 FAT16COPY := build/make/tools/fat16copy.py
 CHECK_LINK_TYPE := build/make/tools/check_link_type.py
+UUIDGEN := build/make/tools/uuidgen.py
 
 PROGUARD := external/proguard/bin/proguard.sh
 JAVATAGS := build/make/tools/java-event-log-tags.py
@@ -936,6 +935,62 @@ PLATFORM_SEPOLICY_COMPAT_VERSIONS := \
     PLATFORM_SEPOLICY_VERSION \
     TOT_SEPOLICY_VERSION \
 
+# If true, kernel configuration requirements are present in OTA package (and will be enforced
+# during OTA). Otherwise, kernel configuration requirements are enforced in VTS.
+# Devices that checks the running kernel (instead of the kernel in OTA package) should not
+# set this variable to prevent OTA failures.
+ifndef PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS
+  PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS :=
+  ifdef PRODUCT_SHIPPING_API_LEVEL
+    ifeq (true,$(call math_gt_or_eq,$(PRODUCT_SHIPPING_API_LEVEL),29))
+      PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := true
+    endif
+  endif
+endif
+.KATI_READONLY := PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS
+
+ifeq ($(USE_LOGICAL_PARTITIONS),true)
+    requirements := \
+        PRODUCT_USE_DYNAMIC_PARTITION_SIZE \
+        PRODUCT_BUILD_SUPER_PARTITION \
+        PRODUCT_USE_FASTBOOTD \
+
+    $(foreach req,$(requirements),$(if $(filter false,$($(req))),\
+        $(error USE_LOGICAL_PARTITIONS requires $(req) to be true)))
+
+    requirements :=
+
+  BOARD_KERNEL_CMDLINE += androidboot.logical_partitions=1
+endif
+
+ifeq ($(PRODUCT_USE_DYNAMIC_PARTITION_SIZE),true)
+
+ifneq ($(BOARD_SYSTEMIMAGE_PARTITION_SIZE),)
+ifneq ($(BOARD_SYSTEMIMAGE_PARTITION_RESERVED_SIZE),)
+$(error Should not define BOARD_SYSTEMIMAGE_PARTITION_SIZE and \
+    BOARD_SYSTEMIMAGE_PARTITION_RESERVED_SIZE together)
+endif
+endif
+
+ifneq ($(BOARD_VENDORIMAGE_PARTITION_SIZE),)
+ifneq ($(BOARD_VENDORIMAGE_PARTITION_RESERVED_SIZE),)
+$(error Should not define BOARD_VENDORIMAGE_PARTITION_SIZE and \
+    BOARD_VENDORIMAGE_PARTITION_RESERVED_SIZE together)
+endif
+endif
+
+endif # PRODUCT_USE_DYNAMIC_PARTITION_SIZE
+
+ifeq ($(PRODUCT_BUILD_SUPER_PARTITION),true)
+ifneq ($(BOARD_PRODUCTIMAGE_PARTITION_SIZE),)
+ifneq ($(BOARD_PRODUCTIMAGE_PARTITION_RESERVED_SIZE),)
+$(error Should not define BOARD_PRODUCTIMAGE_PARTITION_SIZE and \
+    BOARD_PRODUCTIMAGE_PARTITION_RESERVED_SIZE together)
+endif
+endif
+
+endif # PRODUCT_BUILD_SUPER_PARTITION
+
 # ###############################################################
 # Set up final options.
 # ###############################################################
@@ -1098,11 +1153,10 @@ endif
 ifneq ($(CUSTOM_BUILD),)
 ## We need to be sure the global selinux policies are included
 ## last, to avoid accidental resetting by device configs
-#$(eval include device/custom/sepolicy/common/sepolicy.mk)
+$(eval include device/custom/sepolicy/common/sepolicy.mk)
+endif
 
 # Include any vendor specific config.mk file
-include $(TOPDIR)vendor/aosp/build/core/config.mk
-
-endif
+-include vendor/*/build/core/config.mk
 
 include $(BUILD_SYSTEM)/dumpvar.mk

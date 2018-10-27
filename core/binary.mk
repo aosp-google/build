@@ -33,20 +33,24 @@ endif
 
 my_soong_problems :=
 
-# The proper dependency for kernel headers is INSTALLED_KERNEL_HEADERS.
-# However, there are many instances of the old style dependencies in the
-# source tree.  Fix them up and warn the user.
-ifneq (,$(findstring $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr,$(LOCAL_ADDITIONAL_DEPENDENCIES)))
-  LOCAL_ADDITIONAL_DEPENDENCIES := $(patsubst $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr,INSTALLED_KERNEL_HEADERS,$(LOCAL_ADDITIONAL_DEPENDENCIES))
+# Automatically replace the old-style kernel header include with a dependency
+# on the generated_kernel_headers header library
+ifneq (,$(findstring $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include,$(LOCAL_C_INCLUDES)))
+  LOCAL_C_INCLUDES := $(patsubst $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include,,$(LOCAL_C_INCLUDES))
+  LOCAL_HEADER_LIBRARIES += generated_kernel_headers
 endif
 
-# Many qcom modules don't correctly set a dependency on the kernel headers. Fix it for them,
-# but warn the user.
-ifneq (,$(findstring $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include,$(LOCAL_C_INCLUDES)))
-  ifeq (,$(findstring INSTALLED_KERNEL_HEADERS,$(LOCAL_ADDITIONAL_DEPENDENCIES)))
-    $(warning $(LOCAL_MODULE) uses kernel headers, but does not depend on them!)
-    LOCAL_ADDITIONAL_DEPENDENCIES += INSTALLED_KERNEL_HEADERS
-  endif
+# Some qcom binaries use this weird -isystem include...
+ifneq (,$(findstring $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include,$(LOCAL_CFLAGS)))
+  LOCAL_CFLAGS := $(patsubst -isystem $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include,,$(LOCAL_CFLAGS))
+  LOCAL_HEADER_LIBRARIES += generated_kernel_headers
+endif
+
+# Remove KERNEL_OBJ/usr from any LOCAL_ADDITIONAL_DEPENDENCIES, we will
+# just include generated_kernel_headers which already has the proper
+# dependency
+ifneq (,$(findstring $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr,$(LOCAL_ADDITIONAL_DEPENDENCIES)))
+  LOCAL_ADDITIONAL_DEPENDENCIES := $(patsubst $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr,,$(LOCAL_ADDITIONAL_DEPENDENCIES))
 endif
 
 # The following LOCAL_ variables will be modified in this file.
@@ -487,32 +491,10 @@ ifneq ($(filter true always, $(LOCAL_FDO_SUPPORT)),)
     my_cflags += $($(LOCAL_2ND_ARCH_VAR_PREFIX)TARGET_FDO_OPTIMIZE_CFLAGS)
     my_fdo_build := true
   endif
-  # Disable ccache (or other compiler wrapper) except gomacc, unless
-  # it can handle -fprofile-use properly.
-
-  # ccache supports -fprofile-use as of version 3.2. Parse the version output
-  # of each wrapper to determine if it's ccache 3.2 or newer.
-  is_cc_ccache := $(shell if [ "`$(my_cc_wrapper) -V 2>/dev/null | head -1 | cut -d' ' -f1`" = ccache ]; then echo true; fi)
-  ifeq ($(is_cc_ccache),true)
-    cc_ccache_version := $(shell $(my_cc_wrapper) -V | head -1 | grep -o '[[:digit:]]\+\.[[:digit:]]\+')
-    vmajor := $(shell echo $(cc_ccache_version) | cut -d'.' -f1)
-    vminor := $(shell echo $(cc_ccache_version) | cut -d'.' -f2)
-    cc_ccache_ge_3_2 = $(shell if [ $(vmajor) -gt 3 -o $(vmajor) -eq 3 -a $(vminor) -ge 2 ]; then echo true; fi)
-  endif
-  is_cxx_ccache := $(shell if [ "`$(my_cxx_wrapper) -V 2>/dev/null | head -1 | cut -d' ' -f1`" = ccache ]; then echo true; fi)
-  ifeq ($(is_cxx_ccache),true)
-    cxx_ccache_version := $(shell $(my_cxx_wrapper) -V | head -1 | grep -o '[[:digit:]]\+\.[[:digit:]]\+')
-    vmajor := $(shell echo $(cxx_ccache_version) | cut -d'.' -f1)
-    vminor := $(shell echo $(cxx_ccache_version) | cut -d'.' -f2)
-    cxx_ccache_ge_3_2 = $(shell if [ $(vmajor) -gt 3 -o $(vmajor) -eq 3 -a $(vminor) -ge 2 ]; then echo true; fi)
-  endif
-
-  ifneq ($(cc_ccache_ge_3_2),true)
-    my_cc_wrapper := $(filter $(GOMA_CC),$(my_cc_wrapper))
-  endif
-  ifneq ($(cxx_ccache_ge_3_2),true)
-    my_cxx_wrapper := $(filter $(GOMA_CC),$(my_cxx_wrapper))
-  endif
+  # Disable ccache (or other compiler wrapper) except gomacc, which
+  # can handle -fprofile-use properly.
+  my_cc_wrapper := $(filter $(GOMA_CC),$(my_cc_wrapper))
+  my_cxx_wrapper := $(filter $(GOMA_CC),$(my_cxx_wrapper))
 endif
 
 ###########################################################

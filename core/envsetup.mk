@@ -100,6 +100,12 @@ endif
 # HOST_OS
 ifneq (,$(findstring Linux,$(UNAME)))
   HOST_OS := linux
+    ifneq (,$(findstring Microsoft,$(shell uname -r)))
+      # Microsoft Windows Subsystem for Linux
+      # The HOST_OS is still Linux but with some limitations.
+      # Assumes that there are no other Microsoft Linux kernels
+      HOST_OS_IS_WSL := true
+    endif
 endif
 ifneq (,$(findstring Darwin,$(UNAME)))
   HOST_OS := darwin
@@ -268,8 +274,8 @@ board_config_mk :=
 # Now we can substitute with the real value of TARGET_COPY_OUT_VENDOR
 ifeq ($(TARGET_COPY_OUT_VENDOR),$(_vendor_path_placeholder))
 TARGET_COPY_OUT_VENDOR := system/vendor
-else ifeq ($(filter vendor system/vendor system,$(TARGET_COPY_OUT_VENDOR)),)
-$(error TARGET_COPY_OUT_VENDOR must be either 'vendor', 'system/vendor' or 'system', seeing '$(TARGET_COPY_OUT_VENDOR)'.)
+else ifeq ($(filter vendor system/vendor,$(TARGET_COPY_OUT_VENDOR)),)
+$(error TARGET_COPY_OUT_VENDOR must be either 'vendor' or 'system/vendor', seeing '$(TARGET_COPY_OUT_VENDOR)'.)
 endif
 PRODUCT_COPY_FILES := $(subst $(_vendor_path_placeholder),$(TARGET_COPY_OUT_VENDOR),$(PRODUCT_COPY_FILES))
 

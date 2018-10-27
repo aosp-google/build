@@ -159,6 +159,10 @@ _product_var_list := \
     PRODUCT_CFI_EXCLUDE_PATHS \
     PRODUCT_COMPATIBLE_PROPERTY_OVERRIDE \
     PRODUCT_ACTIONABLE_COMPATIBLE_PROPERTY_DISABLE \
+    PRODUCT_USE_LOGICAL_PARTITIONS \
+    PRODUCT_USE_DYNAMIC_PARTITION_SIZE \
+    PRODUCT_BUILD_SUPER_PARTITION \
+    PRODUCT_USE_FASTBOOTD \
 
 define dump-product
 $(info ==== $(1) ====)\
@@ -172,37 +176,19 @@ $(foreach p,$(PRODUCTS),$(call dump-product,$(p)))
 endef
 
 #
-# Internal function. Appends inherited product variables to an existing one.
+# $(1): product to inherit
 #
-# $(1): Product variable to operate on
-# $(2): Value to append
+# Does three things:
+#  1. Inherits all of the variables from $1.
+#  2. Records the inheritance in the .INHERITS_FROM variable
+#  3. Records that we've visited this node, in ALL_PRODUCTS
 #
-define inherit-product_append-var
-  $(if $(findstring ../,$(2)),\
-    $(eval np := $(call normalize-paths,$(2))),\
-    $(eval np := $(strip $(2))))\
-  $(eval $(1) := $($(1)) $(INHERIT_TAG)$(np))
-endef
-
-#
-# Internal function. Prepends inherited product variables to an existing one.
-#
-# $(1): Product variable to operate on
-# $(2): Value to prepend
-#
-define inherit-product_prepend-var
-  $(eval $(1) := $(INHERIT_TAG)$(strip $(2)) $($(1)))
-endef
-
-#
-# Internal function. Tracks visited notes during inheritance resolution.
-#
-# $(1): Product being inherited
-#
-define inherit-product_track-node
+define inherit-product
   $(if $(findstring ../,$(1)),\
     $(eval np := $(call normalize-paths,$(1))),\
     $(eval np := $(strip $(1))))\
+  $(foreach v,$(_product_var_list), \
+      $(eval $(v) := $($(v)) $(INHERIT_TAG)$(np))) \
   $(eval inherit_var := \
       PRODUCTS.$(strip $(word 1,$(_include_stack))).INHERITS_FROM) \
   $(eval $(inherit_var) := $(sort $($(inherit_var)) $(np))) \
@@ -210,47 +196,12 @@ define inherit-product_track-node
   $(eval ALL_PRODUCTS := $(sort $(ALL_PRODUCTS) $(word 1,$(_include_stack))))
 endef
 
-#
-# $(1): product to inherit
-#
-# Does three things:
-#  1. Inherits all of the variables from $1, prioritizing existing settings.
-#  2. Records the inheritance in the .INHERITS_FROM variable
-#  3. Records that we've visited this node, in ALL_PRODUCTS
-#
-
-define inherit-product
-  $(foreach v,$(_product_var_list), \
-      $(call inherit-product_append-var,$(v),$(1))) \
-  $(call inherit-product_track-node,$(1))
-endef
-
-#
-# $(1): product to inherit
-#
-# Does three things:
-#  1. Inherits all of the variables from $1, prioritizing inherited settings.
-#  2. Records the inheritance in the .INHERITS_FROM variable
-#  3. Records that we've visited this node, in ALL_PRODUCTS
-#
-define prepend-product
-  $(foreach v,$(_product_var_list), \
-      $(call inherit-product_prepend-var,$(v),$(1))) \
-  $(call inherit-product_track-node,$(1))
-endef
 
 #
 # Do inherit-product only if $(1) exists
 #
 define inherit-product-if-exists
   $(if $(wildcard $(1)),$(call inherit-product,$(1)),)
-endef
-
-#
-# Do inherit-product-prepend only if $(1) exists
-#
-define prepend-product-if-exists
-  $(if $(wildcard $(1)),$(call prepend-product,$(1)),)
 endef
 
 #
@@ -374,6 +325,14 @@ _product_stash_var_list += \
 	DEFAULT_SYSTEM_DEV_CERTIFICATE \
 	WITH_DEXPREOPT \
 	WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY
+
+# Logical partitions related variables.
+_product_stash_var_list += \
+	BOARD_SYSTEMIMAGE_PARTITION_RESERVED_SIZE \
+	BOARD_VENDORIMAGE_PARTITION_RESERVED_SIZE \
+	BOARD_PRODUCTIMAGE_PARTITION_RESERVED_SIZE \
+	BOARD_SUPER_PARTITION_SIZE \
+	BOARD_SUPER_PARTITION_PARTITION_LIST \
 
 #
 # Mark the variables in _product_stash_var_list as readonly

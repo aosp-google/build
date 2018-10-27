@@ -23,7 +23,6 @@ PRODUCT_PROPERTY_OVERRIDES := \
 PRODUCT_PACKAGES += \
     ContactsProvider \
     DefaultContainerService \
-    Home \
     TelephonyProvider \
     UserDictionaryProvider \
     atrace \
@@ -33,7 +32,6 @@ PRODUCT_PACKAGES += \
     libfilterpack_imageproc \
     libgabi++ \
     libmdnssd \
-    libnfc_ndef \
     libpowermanager \
     libspeexresampler \
     libstagefright_soft_aacdec \
